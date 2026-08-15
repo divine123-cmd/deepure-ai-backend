@@ -10,11 +10,11 @@ app = Bottle()
 # ============================================
 # CONFIGURATION
 # ============================================
-SECRET_KEY = "your-secret-key-change-this-in-production"
+SECRET_KEY = os.environ.get("SECRET_KEY", "your-secret-key-change-this-in-production")
 ALGORITHM = "HS256"
 
-# Your API Key from Google AI Studio
-GEMINI_API_KEY = "AQ.Ab8RN6LCaydyEL0SpFOHrXlFgg4IRZeSPtERlGi_ax0kIvYijQ"
+# Get API key from environment variable or fallback to string
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6LCaydyEL0SpFOHrXlFgg4IRZeSPtERlGi_ax0kIvYijQ")
 
 # Password hashing setup
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
@@ -32,7 +32,7 @@ def enable_cors():
     response.headers['Access-Control-Allow-Headers'] = 'Origin, Accept, Content-Type, Authorization'
 
 @app.route('/<path:path>', method='OPTIONS')
-def options_handler(path):
+def options_handler(path=''):
     return {}
 
 # ============================================
@@ -70,6 +70,10 @@ def register():
     password = data.get('password')
     full_name = data.get('full_name', '')
 
+    if not email or not password:
+        response.status = 400
+        return {"detail": "Email and password are required"}
+
     if email in users_db:
         response.status = 400
         return {"detail": "Account with this email already exists"}
@@ -106,7 +110,7 @@ def login():
         "user": {"id": user["id"], "full_name": user["full_name"], "email": email}
     }
 
-# CHAT ENDPOINT (Matching your cURL command)
+# CHAT ENDPOINT
 @app.post('/api/chat')
 def chat():
     user = get_current_user()
@@ -116,11 +120,15 @@ def chat():
     data = request.json or {}
     message = data.get('message', '')
 
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
-    
+    if not message:
+        response.status = 400
+        return {"detail": "Message parameter is required"}
+
+    # Pass API key via URL query string to prevent 401 Header Errors
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+
     headers = {
-        "Content-Type": "application/json",
-        "X-goog-api-key": GEMINI_API_KEY
+        "Content-Type": "application/json"
     }
 
     payload = {
@@ -136,18 +144,24 @@ def chat():
     }
 
     res = requests.post(url, json=payload, headers=headers)
-    
+
     if res.status_code != 200:
         print("Gemini API Error details:", res.text)
         response.status = res.status_code
-        return {"detail": f"AI request failed with status {res.status_code}"}
+        return {"detail": f"AI request failed: {res.text}"}
 
     res_data = res.json()
-    ai_reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
-    return {"reply": ai_reply}
+    try:
+        ai_reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
+        return {"reply": ai_reply}
+    except (KeyError, IndexError):
+        response.status = 500
+        return {"detail": "Invalid response structure from AI model."}
 
 # ============================================
-# SERVER STARTUP
+# SERVER STARTUP (Dynamic Port for Railway)
 # ============================================
 if __name__ == '__main__':
-    run(app, host='0.0.0.0', port=8000)
+    port = int(os.environ.get('PORT', 8000))
+    run(app, host='0.0.0.0', port=port)
+    
