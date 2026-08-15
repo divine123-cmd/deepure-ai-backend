@@ -109,12 +109,12 @@ def login():
         "access_token": token,
         "user": {"id": user["id"], "full_name": user["full_name"], "email": email}
     }
-
 # CHAT ENDPOINT
 @app.post('/api/chat')
 def chat():
     user = get_current_user()
     if not user:
+        response.status = 401
         return {"detail": "Unauthorized"}
 
     data = request.json or {}
@@ -124,7 +124,7 @@ def chat():
         response.status = 400
         return {"detail": "Message parameter is required"}
 
-    # Pass API key via URL query string to prevent 401 Header Errors
+    # Pass API key via URL parameter using gemini-1.5-flash
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
 
     headers = {
@@ -157,6 +157,7 @@ def chat():
     except (KeyError, IndexError):
         response.status = 500
         return {"detail": "Invalid response structure from AI model."}
+
 
 # ============================================
 # SERVER STARTUP (Dynamic Port for Railway)
