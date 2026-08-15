@@ -134,7 +134,7 @@ def generate_ai_reply(message: str, mode: str = "simple") -> str:
     full_prompt = f"{SYSTEM_PROMPT}\n\nCurrent mode: {mode_instruction}\n\nUser question: {message}"
 
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-1.5-flash-latest")
         response = model.generate_content(
             full_prompt,
             generation_config=genai.types.GenerationConfig(
