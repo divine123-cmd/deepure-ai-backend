@@ -1,12 +1,11 @@
 import os
-import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from google import genai
 from pydantic import BaseModel
 
 app = FastAPI()
 
-# Enable CORS for the chat frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,18 +27,12 @@ def chat(req: ChatRequest):
     if not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-    headers = {"Content-Type": "application/json"}
-    payload = {"contents": [{"parts": [{"text": req.message}]}]}
-
-    res = requests.post(url, json=payload, headers=headers)
-    
-    if res.status_code != 200:
-        raise HTTPException(status_code=res.status_code, detail=res.text)
-
-    data = res.json()
     try:
-        reply = data["candidates"][0]["content"]["parts"][0]["text"]
-        return {"reply": reply}
-    except (KeyError, IndexError):
-        raise HTTPException(status_code=500, detail="Invalid response structure from Gemini API")
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=req.message,
+        )
+        return {"reply": response.text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
