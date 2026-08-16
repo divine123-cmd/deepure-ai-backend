@@ -1,6 +1,7 @@
-fastapi
-uvicorn
-google-genai
-pydantic
+bottle
+requests
+PyJWT
+passlib
+
 
 
